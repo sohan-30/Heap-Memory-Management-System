@@ -36,11 +36,7 @@ When `Allocate(size)` is called:
 3. **Splitting Decision**: 
    - If `block_size > requested_size + sizeof(MetaBlock)`: Split the block
    - Otherwise: Use entire block (avoid tiny fragments)
-4. **Block Splitting Process**:
-   ```
-   Before: [MetaBlock: 1000 bytes, free]
-   After:  [MetaBlock: 100 bytes, allocated][MetaBlock: 876 bytes, free]
-   ```
+4. **Block Splitting Process**
 5. **Status Update**: Mark allocated block with status 'a'
 6. **Return Pointer**: Return address of usable memory (after metadata)
 
@@ -61,12 +57,7 @@ The `Merge()` function eliminates fragmentation:
 
 1. **Forward Traversal**: Walk through linked list from beginning
 2. **Adjacent Check**: For each free block, check if next block is also free
-3. **Merge Operation**: 
-   ```
-   Before: [Free: 100][Free: 200][Allocated: 150]
-   After:  [Free: 324][Allocated: 150]
-           (100 + 200 + 24 bytes of eliminated metadata)
-   ```
+3. **Merge Operation**
 4. **Link Update**: Adjust next pointers to skip merged blocks
 5. **Size Calculation**: Add sizes plus eliminated metadata overhead
 
