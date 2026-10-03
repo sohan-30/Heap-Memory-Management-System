@@ -4,7 +4,8 @@
 #include <stdbool.h>
 
 #define HeapSize 10000
-char Heap[HeapSize];
+#define ALIGNMENT 8
+_Alignas(16) char Heap[HeapSize];
 
 typedef struct MetaData
 {
@@ -14,6 +15,11 @@ typedef struct MetaData
 } MetaBlock;
 
 MetaBlock *heap_block_ptr = (void *)Heap;
+
+/* Address of the usable memory that follows a block header.
+   NOTE: cast to char* so the addition is in BYTES. (MetaBlock* + n would
+   add n * sizeof(MetaBlock) bytes, which was the original bug.) */
+#define PAYLOAD(b) ((void *)((char *)(b) + sizeof(MetaBlock)))
 
 void Initialize()
 {
@@ -26,7 +32,7 @@ void Initialize()
     printf("  - Metadata size: %zu bytes per block\n", sizeof(MetaBlock));
     printf("  - Available memory: %zu bytes\n", heap_block_ptr->size);
     printf("  - Heap start address: %p\n", heap_block_ptr);
-    printf("  - First usable memory: %p\n", (MetaBlock *)heap_block_ptr + sizeof(MetaBlock));
+    printf("  - First usable memory: %p\n", PAYLOAD(heap_block_ptr));
     printf("======================================\n\n");
 }
 
@@ -38,6 +44,9 @@ void *Allocate(size_t size_to_be_allocated)
         return NULL;
     }
     
+    /* round up so every header/payload stays 8-byte aligned */
+    size_to_be_allocated = (size_to_be_allocated + (ALIGNMENT - 1)) & ~(size_t)(ALIGNMENT - 1);
+
     MetaBlock *current = heap_block_ptr;
     void *ret_ptr = NULL;
     int flag = 0;
@@ -58,7 +67,7 @@ void *Allocate(size_t size_to_be_allocated)
 
     if (current->size > size_to_be_allocated + sizeof(MetaBlock)) 
     {
-        MetaBlock *new_block = (void *)((MetaBlock *)current + sizeof(MetaBlock) + size_to_be_allocated);
+        MetaBlock *new_block = (void *)((char *)current + sizeof(MetaBlock) + size_to_be_allocated);
         
         new_block->size = current->size - size_to_be_allocated - sizeof(MetaBlock);
         new_block->next = current->next;
@@ -72,7 +81,7 @@ void *Allocate(size_t size_to_be_allocated)
     }
     
     current->status = 'a';
-    ret_ptr = (MetaBlock*)current + sizeof(MetaBlock);
+    ret_ptr = PAYLOAD(current);
     
     printf("Successfully allocated %zu bytes at address %p\n", size_to_be_allocated, ret_ptr);
     
@@ -95,7 +104,7 @@ MetaBlock *GetBlockMetadata(void *ptr)
     
     while (current != NULL) 
     {
-        void *block_data = (MetaBlock*)current + sizeof(MetaBlock);
+        void *block_data = PAYLOAD(current);
         
         if (block_data == ptr) 
         {
@@ -175,7 +184,7 @@ void DisplayHeap()
     while (current != NULL) 
     {
         printf("%-5d %-20p %-10c %-10zu %-15p\n", block_count, (void*)current, current->status, 
-               current->size, (MetaBlock*)current + sizeof(MetaBlock));
+               current->size, PAYLOAD(current));
         
         if (current->status == 'f') 
         {
